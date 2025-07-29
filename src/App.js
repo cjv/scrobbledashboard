@@ -15,7 +15,11 @@ const ScrobbleDashboard = () => {
   const [stats, setStats] = useState(null);
   const [topArtists, setTopArtists] = useState([]);
   const [topAlbums, setTopAlbums] = useState([]);
+  const [lovedAlbums, setLovedAlbums] = useState([]);
   const [recentTracks, setRecentTracks] = useState([]);
+  const [topTracks, setTopTracks] = useState([]);
+  const [allTracks, setAllTracks] = useState([]);
+  const [allTracksInfo, setAllTracksInfo] = useState({ total_count: 0, showing_count: 0, has_more: false });
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [hourlyStats, setHourlyStats] = useState([]);
 
@@ -24,12 +28,19 @@ const ScrobbleDashboard = () => {
     checkDataAndLoad();
   }, []);
 
-  // Load tracks when search term changes
+  // Load tracks when search term changes (only for All Tracks view)
   useEffect(() => {
-    if (hasData) {
-      loadRecentTracks();
+    if (hasData && activeView === 'alltracks') {
+      loadAllTracksData();
     }
-  }, [searchTerm, hasData]);
+  }, [searchTerm, hasData, activeView]);
+
+  // Load all tracks data when switching to All Tracks view
+  useEffect(() => {
+    if (hasData && activeView === 'alltracks' && allTracks.length === 0) {
+      loadAllTracksData();
+    }
+  }, [activeView, hasData]);
 
   const checkDataAndLoad = async () => {
     try {
@@ -52,11 +63,13 @@ const ScrobbleDashboard = () => {
 
   const loadAllData = async () => {
     try {
-      const [statsRes, artistsRes, albumsRes, tracksRes, monthlyRes, hourlyRes] = await Promise.all([
+      const [statsRes, artistsRes, albumsRes, lovedAlbumsRes, tracksRes, topTracksRes, monthlyRes, hourlyRes] = await Promise.all([
         fetch(`${API_BASE}/api/stats`),
         fetch(`${API_BASE}/api/artists?limit=50`),
         fetch(`${API_BASE}/api/albums?limit=30`),
-        fetch(`${API_BASE}/api/tracks?limit=100`),
+        fetch(`${API_BASE}/api/albums/loved?limit=30`),
+        fetch(`${API_BASE}/api/tracks?limit=20`),
+        fetch(`${API_BASE}/api/tracks/top?limit=20`),
         fetch(`${API_BASE}/api/monthly-stats`),
         fetch(`${API_BASE}/api/hourly-stats`)
       ]);
@@ -64,7 +77,9 @@ const ScrobbleDashboard = () => {
       setStats(await statsRes.json());
       setTopArtists(await artistsRes.json());
       setTopAlbums(await albumsRes.json());
+      setLovedAlbums(await lovedAlbumsRes.json());
       setRecentTracks(await tracksRes.json());
+      setTopTracks(await topTracksRes.json());
       setMonthlyStats(await monthlyRes.json());
       setHourlyStats(await hourlyRes.json());
     } catch (error) {
@@ -74,12 +89,28 @@ const ScrobbleDashboard = () => {
 
   const loadRecentTracks = async () => {
     try {
-      const url = `${API_BASE}/api/tracks?limit=100${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
+      const url = `${API_BASE}/api/tracks?limit=20`;
       const response = await fetch(url);
       const tracks = await response.json();
       setRecentTracks(tracks);
     } catch (error) {
       console.error('Error loading tracks:', error);
+    }
+  };
+
+  const loadAllTracksData = async () => {
+    try {
+      const url = `${API_BASE}/api/tracks/all?limit=500${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setAllTracks(data.tracks);
+      setAllTracksInfo({
+        total_count: data.total_count,
+        showing_count: data.showing_count,
+        has_more: data.has_more
+      });
+    } catch (error) {
+      console.error('Error loading all tracks:', error);
     }
   };
 
@@ -251,16 +282,6 @@ const ScrobbleDashboard = () => {
             </div>
             <div className="flex items-center gap-4">
               <div className="relative">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400" />
-                <input
-                  type="text"
-                  placeholder="Search tracks, artists, albums..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                />
-              </div>
-              <div className="relative">
                 <input
                   type="file"
                   accept=".json"
@@ -289,7 +310,8 @@ const ScrobbleDashboard = () => {
               { id: 'overview', label: 'Overview', icon: TrendingUp },
               { id: 'artists', label: 'Artists', icon: User },
               { id: 'albums', label: 'Albums', icon: Disc },
-              { id: 'tracks', label: 'Tracks', icon: PlayCircle },
+              { id: 'toptracks', label: 'Top Tracks', icon: PlayCircle },
+              { id: 'alltracks', label: 'All Tracks', icon: Search },
               { id: 'calendar', label: 'Calendar', icon: Calendar }
             ].map(({ id, label, icon: Icon }) => (
               <button
@@ -346,13 +368,13 @@ const ScrobbleDashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-slate-600">Date Range</p>
-                    <p className="text-sm font-bold text-slate-700">
+                    <p className="text-2xl font-bold text-emerald-600">
                       {stats.first_scrobble && stats.last_scrobble && 
                         `${new Date(stats.first_scrobble).getFullYear()} - ${new Date(stats.last_scrobble).getFullYear()}`
                       }
                     </p>
                   </div>
-                  <Clock className="w-8 h-8 text-slate-500" />
+                  <Clock className="w-8 h-8 text-emerald-500" />
                 </div>
               </div>
             </div>
@@ -364,9 +386,22 @@ const ScrobbleDashboard = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <LineChart data={monthlyStats}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="month" stroke="#64748b" />
+                    <XAxis 
+                      dataKey="month" 
+                      stroke="#64748b" 
+                      tickFormatter={(value) => {
+                        const [year, month] = value.split('-');
+                        return `${month}/${year.slice(2)}`;
+                      }}
+                    />
                     <YAxis stroke="#64748b" />
-                    <Tooltip />
+                    <Tooltip 
+                      labelFormatter={(value) => {
+                        const [year, month] = value.split('-');
+                        const monthNames = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+                        return `${monthNames[parseInt(month)]} ${year}`;
+                      }}
+                    />
                     <Line type="monotone" dataKey="count" stroke="#7c3aed" strokeWidth={2} />
                   </LineChart>
                 </ResponsiveContainer>
@@ -377,9 +412,27 @@ const ScrobbleDashboard = () => {
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={hourlyStats}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="hour" stroke="#64748b" />
+                    <XAxis 
+                      dataKey="hour" 
+                      stroke="#64748b" 
+                      tickFormatter={(value) => {
+                        const hour = parseInt(value.split(':')[0]);
+                        if (hour === 0) return '12 AM';
+                        if (hour === 12) return '12 PM';
+                        if (hour < 12) return `${hour} AM`;
+                        return `${hour - 12} PM`;
+                      }}
+                    />
                     <YAxis stroke="#64748b" />
-                    <Tooltip />
+                    <Tooltip 
+                      labelFormatter={(value) => {
+                        const hour = parseInt(value.split(':')[0]);
+                        if (hour === 0) return '12:00 AM';
+                        if (hour === 12) return '12:00 PM';
+                        if (hour < 12) return `${hour}:00 AM`;
+                        return `${hour - 12}:00 PM`;
+                      }}
+                    />
                     <Bar dataKey="count" fill="#06b6d4" />
                   </BarChart>
                 </ResponsiveContainer>
@@ -444,59 +497,215 @@ const ScrobbleDashboard = () => {
 
         {/* Albums View */}
         {activeView === 'albums' && (
-          <div className="bg-purple-50 rounded-lg shadow border border-purple-200">
-            <div className="p-6 border-b border-purple-200">
-              <h2 className="text-xl font-semibold text-slate-700">Top Albums</h2>
-            </div>
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {topAlbums.map((album, index) => (
-                  <div key={`${album.artist}-${album.album}`} className="bg-white border border-purple-200 rounded-lg p-4 hover:shadow-md hover:bg-slate-50 transition-all">
-                    <div className="flex items-start gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
-                        #{index + 1}
-                      </div>
-                      <div className="flex-grow">
-                        <p className="font-medium text-slate-700 line-clamp-2">
-                          {album.album || 'Unknown Album'}
-                        </p>
-                        <p className="text-sm text-slate-500 mb-2">
-                          {album.artist || 'Unknown Artist'}
-                        </p>
-                        <p className="text-sm font-semibold text-violet-600">{album.count} plays</p>
+          <div className="space-y-8">
+            {/* Top Albums */}
+            <div className="bg-purple-50 rounded-lg shadow border border-purple-200">
+              <div className="p-6 border-b border-purple-200">
+                <h2 className="text-xl font-semibold text-slate-700">Top Albums</h2>
+                <p className="text-sm text-slate-500 mt-1">Albums with the most total plays</p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {topAlbums.map((album, index) => (
+                    <div key={`${album.artist}-${album.album}`} className="bg-white border border-purple-200 rounded-lg p-4 hover:shadow-md hover:bg-slate-50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
+                          #{index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="font-medium text-slate-700 line-clamp-2">
+                            {album.album || 'Unknown Album'}
+                          </p>
+                          <p className="text-sm text-slate-500 mb-2">
+                            {album.artist || 'Unknown Artist'}
+                          </p>
+                          <p className="text-sm font-semibold text-violet-600">{album.count} plays</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Most Loved Albums */}
+            <div className="bg-pink-50 rounded-lg shadow border border-pink-200">
+              <div className="p-6 border-b border-pink-200">
+                <h2 className="text-xl font-semibold text-slate-700">Most Loved Albums</h2>
+                <p className="text-sm text-slate-500 mt-1">Albums with 9+ tracks played, sorted by average plays per track - shows albums you've truly explored and loved</p>
+              </div>
+              <div className="p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {lovedAlbums.map((album, index) => (
+                    <div key={`loved-${album.artist}-${album.album}`} className="bg-white border border-pink-200 rounded-lg p-4 hover:shadow-md hover:bg-slate-50 transition-all">
+                      <div className="flex items-start gap-3">
+                        <div className="w-12 h-12 bg-gradient-to-br from-pink-500 to-rose-500 rounded-lg flex items-center justify-center text-white font-bold flex-shrink-0">
+                          #{index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="font-medium text-slate-700 line-clamp-2">
+                            {album.album || 'Unknown Album'}
+                          </p>
+                          <p className="text-sm text-slate-500 mb-2">
+                            {album.artist || 'Unknown Artist'}
+                          </p>
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-pink-600">
+                              {album.unique_tracks_played} tracks played
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {album.total_plays} total plays • {album.avg_plays_per_track} avg per track
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Tracks View */}
-        {activeView === 'tracks' && (
+        {/* Top Tracks View */}
+        {activeView === 'toptracks' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Most Recent Tracks */}
+            <div className="bg-purple-50 rounded-lg shadow border border-purple-200">
+              <div className="p-6 border-b border-purple-200">
+                <h2 className="text-xl font-semibold text-slate-700">Most Recent Tracks</h2>
+                <p className="text-sm text-slate-500 mt-1">Your latest 20 plays</p>
+              </div>
+              <div className="p-6">
+                <div className="space-y-3">
+                  {recentTracks.map((track, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white border border-purple-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-violet-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="font-medium text-slate-700 text-sm">
+                            {track.track || 'Unknown Track'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {track.artist || 'Unknown Artist'} • {track.album || 'Unknown Album'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right text-xs text-slate-400">
+                        {new Date(track.timestamp).toLocaleDateString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Most Listened Tracks */}
+            <div className="bg-purple-50 rounded-lg shadow border border-purple-200">
+              <div className="p-6 border-b border-purple-200">
+                <h2 className="text-xl font-semibold text-slate-700">Most Listened Tracks</h2>
+                <p className="text-sm text-slate-500 mt-1">Your top 20 most played tracks</p>
+              </div>
+              <div className="p-6">
+                <div className="space-y-3">
+                  {topTracks.map((track, index) => (
+                    <div key={index} className="flex items-center justify-between p-3 bg-white border border-purple-200 rounded-lg hover:bg-slate-50 transition-colors">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gradient-to-br from-cyan-500 to-blue-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-grow">
+                          <p className="font-medium text-slate-700 text-sm">
+                            {track.track || 'Unknown Track'}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {track.artist || 'Unknown Artist'} • {track.album || 'Unknown Album'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-cyan-600">{track.play_count} plays</p>
+                        <p className="text-xs text-slate-400">
+                          Last: {new Date(track.last_played).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* All Tracks View */}
+        {activeView === 'alltracks' && (
           <div className="bg-purple-50 rounded-lg shadow border border-purple-200">
             <div className="p-6 border-b border-purple-200">
-              <h2 className="text-xl font-semibold text-slate-700">Recent Tracks</h2>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-700">All Tracks by Play Count</h2>
+                  <p className="text-sm text-slate-500 mt-1">All your tracks sorted by most played</p>
+                </div>
+                <div className="relative">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-purple-400" />
+                  <input
+                    type="text"
+                    placeholder="Search tracks, artists, albums..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+              </div>
             </div>
             <div className="p-6">
               <div className="space-y-3">
-                {recentTracks.map((track, index) => (
+                {allTracks.map((track, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-white border border-purple-200 rounded-lg hover:bg-slate-50 transition-colors">
-                    <div className="flex-grow">
-                      <p className="font-medium text-slate-700">
-                        {track.track || 'Unknown Track'}
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {track.artist || 'Unknown Artist'} • {track.album || 'Unknown Album'}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                        {index + 1}
+                      </div>
+                      <div className="flex-grow">
+                        <p className="font-medium text-slate-700 text-sm">
+                          {track.track || 'Unknown Track'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {track.artist || 'Unknown Artist'} • {track.album || 'Unknown Album'}
+                        </p>
+                      </div>
                     </div>
-                    <div className="text-right text-sm text-slate-400">
-                      {new Date(track.timestamp).toLocaleDateString()}
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-indigo-600">{track.play_count} plays</p>
+                      <p className="text-xs text-slate-400">
+                        Last: {new Date(track.last_played).toLocaleDateString()}
+                      </p>
                     </div>
                   </div>
                 ))}
               </div>
+              {allTracksInfo.total_count > 0 && (
+                <div className="mt-6 p-4 bg-slate-100 rounded-lg border-t border-purple-200">
+                  <div className="text-center text-sm text-slate-600">
+                    <p>
+                      Showing <span className="font-semibold text-slate-700">{allTracksInfo.showing_count}</span> of{' '}
+                      <span className="font-semibold text-slate-700">{allTracksInfo.total_count}</span> total tracks
+                      {allTracksInfo.has_more && (
+                        <span className="text-slate-500">
+                          {' '}• {allTracksInfo.total_count - allTracksInfo.showing_count} more tracks not shown
+                        </span>
+                      )}
+                    </p>
+                    {searchTerm && (
+                      <p className="text-xs text-slate-500 mt-1">
+                        Results filtered by search term "{searchTerm}"
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

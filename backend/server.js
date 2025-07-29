@@ -36,6 +36,7 @@ app.get('/api/stats', (req, res) => {
       MAX(s.timestamp) as last_scrobble
     FROM scrobbles s
     JOIN tracks t ON s.track_id = t.id
+    WHERE s.timestamp > '1990-01-01'
   `;
   
   db.get(query, (err, row) => {
@@ -141,6 +142,142 @@ app.get('/api/tracks', (req, res) => {
   });
 });
 
+// Get most listened tracks
+app.get('/api/tracks/top', (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+  
+  const query = `
+    SELECT 
+      t.title as track,
+      a.name as artist,
+      al.title as album,
+      COUNT(s.id) as play_count,
+      MAX(s.timestamp) as last_played,
+      t.url,
+      t.streamable
+    FROM tracks t
+    JOIN artists a ON t.artist_id = a.id
+    LEFT JOIN albums al ON t.album_id = al.id
+    JOIN scrobbles s ON t.id = s.track_id
+    GROUP BY t.id, t.title, a.name, al.title
+    ORDER BY play_count DESC, last_played DESC
+    LIMIT ?
+  `;
+  
+  db.all(query, [limit], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
+// Get all tracks sorted by play count
+app.get('/api/tracks/all', (req, res) => {
+  const limit = parseInt(req.query.limit) || 500;
+  const search = req.query.search || '';
+  
+  // First get the total count
+  let countQuery = `
+    SELECT COUNT(DISTINCT t.id) as total_count
+    FROM tracks t
+    JOIN artists a ON t.artist_id = a.id
+    LEFT JOIN albums al ON t.album_id = al.id
+    JOIN scrobbles s ON t.id = s.track_id
+    WHERE s.timestamp > '1990-01-01'
+  `;
+  
+  const countParams = [];
+  if (search) {
+    countQuery += ` AND (a.name LIKE ? OR t.title LIKE ? OR al.title LIKE ?)`;
+    const searchParam = `%${search}%`;
+    countParams.push(searchParam, searchParam, searchParam);
+  }
+  
+  db.get(countQuery, countParams, (err, countResult) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    
+    // Then get the limited results
+    let query = `
+      SELECT 
+        t.title as track,
+        a.name as artist,
+        al.title as album,
+        COUNT(s.id) as play_count,
+        MAX(s.timestamp) as last_played,
+        t.url,
+        t.streamable
+      FROM tracks t
+      JOIN artists a ON t.artist_id = a.id
+      LEFT JOIN albums al ON t.album_id = al.id
+      JOIN scrobbles s ON t.id = s.track_id
+      WHERE s.timestamp > '1990-01-01'
+    `;
+    
+    const params = [];
+    if (search) {
+      query += ` AND (a.name LIKE ? OR t.title LIKE ? OR al.title LIKE ?)`;
+      const searchParam = `%${search}%`;
+      params.push(searchParam, searchParam, searchParam);
+    }
+    
+    query += ` GROUP BY t.id, t.title, a.name, al.title
+      ORDER BY play_count DESC, last_played DESC
+      LIMIT ?`;
+    params.push(limit);
+    
+    db.all(query, params, (err, rows) => {
+      if (err) {
+        res.status(500).json({ error: err.message });
+        return;
+      }
+      
+      res.json({
+        tracks: rows,
+        total_count: countResult.total_count,
+        showing_count: rows.length,
+        has_more: countResult.total_count > rows.length
+      });
+    });
+  });
+});
+
+// Get most loved albums (albums with most unique tracks listened to)
+app.get('/api/albums/loved', (req, res) => {
+  const limit = parseInt(req.query.limit) || 30;
+  
+  const query = `
+    SELECT 
+      al.title as album,
+      a.name as artist,
+      COUNT(DISTINCT t.id) as unique_tracks_played,
+      COUNT(s.id) as total_plays,
+      al.image_url as image,
+      ROUND(CAST(COUNT(s.id) AS FLOAT) / COUNT(DISTINCT t.id), 1) as avg_plays_per_track
+    FROM albums al
+    JOIN artists a ON al.artist_id = a.id
+    JOIN tracks t ON al.id = t.album_id
+    JOIN scrobbles s ON t.id = s.track_id
+    WHERE s.timestamp > '1990-01-01'
+    GROUP BY al.id, al.title, a.name
+    HAVING unique_tracks_played >= 9
+    ORDER BY avg_plays_per_track DESC, unique_tracks_played DESC
+    LIMIT ?
+  `;
+  
+  db.all(query, [limit], (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
+});
+
 // Get monthly stats for charts
 app.get('/api/monthly-stats', (req, res) => {
   const query = `
@@ -148,6 +285,7 @@ app.get('/api/monthly-stats', (req, res) => {
       strftime('%Y-%m', timestamp) as month,
       COUNT(*) as count
     FROM scrobbles
+    WHERE timestamp > '1990-01-01'
     GROUP BY strftime('%Y-%m', timestamp)
     ORDER BY month
   `;
@@ -168,6 +306,7 @@ app.get('/api/hourly-stats', (req, res) => {
       CAST(strftime('%H', timestamp) AS INTEGER) as hour,
       COUNT(*) as count
     FROM scrobbles
+    WHERE timestamp > '1990-01-01'
     GROUP BY strftime('%H', timestamp)
     ORDER BY hour
   `;
@@ -239,9 +378,13 @@ app.delete('/api/data', (req, res) => {
   });
 });
 
-// Serve React app for any non-API routes
+// Serve React app for any non-API routes (only in production)
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, '../build', 'index.html'));
+  if (process.env.NODE_ENV === 'production') {
+    res.sendFile(path.join(__dirname, '../build', 'index.html'));
+  } else {
+    res.status(404).json({ error: 'API endpoint not found' });
+  }
 });
 
 app.listen(PORT, () => {
