@@ -21,3 +21,23 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Backend specific files
+backend/node_modules/
+backend/database.sqlite
+backend/server.log
+backend/nohup.out
+backend/*.log
+
+# Environment files
+.env
+backend/.env
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+Thumbs.db
