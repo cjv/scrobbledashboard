@@ -1,70 +1,95 @@
-# Getting Started with Create React App
+# Courtney Heard - Music Listening Dashboard
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A full-stack web application for visualizing and analyzing personal Last.fm listening data. Upload your Last.fm JSON exports to get detailed insights into your music consumption patterns.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+- **Data Import**: Upload Last.fm JSON exports through web interface
+- **Artist Analytics**: Top artists with play counts, track counts, and listening history
+- **Album Analytics**: Most played albums with detailed statistics
+- **Track History**: Searchable recent tracks with timestamps
+- **Listening Patterns**: Monthly and hourly listening trends with interactive charts
+- **Calendar Heatmap**: Year-over-year listening activity visualization
+- **Real-time Search**: Filter tracks, artists, and albums instantly
 
-### `npm start`
+## Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **Frontend**: React, Tailwind CSS, Recharts for data visualization
+- **Backend**: Node.js, Express.js
+- **Database**: SQLite with normalized schema
+- **File Processing**: Multer for uploads, custom JSON parser for Last.fm data
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Getting Started
 
-### `npm test`
+### Prerequisites
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+- Node.js (v16 or higher)
+- npm
 
-### `npm run build`
+### Installation
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd scrobble-dashboard
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+2. Install dependencies and set up the database
+```bash
+npm install
+npm run setup
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+3. Start the development servers
+```bash
+npm run dev
+```
 
-### `npm run eject`
+This will start:
+- Frontend dev server on http://localhost:3000
+- Backend API server on http://localhost:5001
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+### Available Scripts
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+- `npm start` - Start React frontend only
+- `npm run server` - Start backend API only  
+- `npm run dev` - Start both frontend and backend concurrently
+- `npm run setup` - Install backend dependencies and initialize database
+- `npm run build` - Build frontend for production
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+## Usage
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+1. **Get Your Last.fm Data**: Export your listening history from Last.fm
+2. **Upload Data**: Use the web interface to upload your JSON file(s)
+3. **Explore**: Navigate through different views to analyze your listening patterns
 
-## Learn More
+## API Endpoints
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+- `GET /api/stats` - Overall listening statistics
+- `GET /api/artists` - Top artists with play counts
+- `GET /api/albums` - Top albums with play counts  
+- `GET /api/tracks` - Recent tracks (supports search)
+- `GET /api/monthly-stats` - Monthly listening trends
+- `GET /api/hourly-stats` - Hourly listening patterns
+- `POST /api/upload` - Upload and process JSON files
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Database Schema
 
-### Code Splitting
+The app uses a normalized SQLite schema:
+- **artists** - Artist information and metadata
+- **albums** - Album information linked to artists
+- **tracks** - Track information linked to artists and albums
+- **scrobbles** - Individual play records with timestamps
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+## Deployment
 
-### Analyzing the Bundle Size
+Build the production version:
+```bash
+npm run build
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+The built files will be in the `build/` directory. Deploy both the built frontend and the `backend/` directory to your hosting platform.
 
-### Making a Progressive Web App
+## License
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+MIT License - feel free to use this project as a portfolio piece or learning resource.
