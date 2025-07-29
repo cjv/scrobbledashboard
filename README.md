@@ -1,4 +1,4 @@
-# Courtney Heard - Music Listening Dashboard
+# Scrobble Dashboard - My Music Listening Dashboard
 
 A full-stack web application for visualizing and analyzing personal Last.fm listening data. Upload your Last.fm JSON exports to get detailed insights into your music consumption patterns.
 
@@ -30,7 +30,7 @@ A full-stack web application for visualizing and analyzing personal Last.fm list
 
 1. Clone the repository
 ```bash
-git clone <repository-url>
+git clone https://github.com/cjv/scrobbledashboard.git
 cd scrobble-dashboard
 ```
 
@@ -59,7 +59,7 @@ This will start:
 
 ## Usage
 
-1. **Get Your Last.fm Data**: Export your listening history from Last.fm
+1. **Get Your Last.fm Data**: Export your listening history from Last.fm.  Public accounts can pull down a JSON file from https://lastfm.ghan.nl/export/
 2. **Upload Data**: Use the web interface to upload your JSON file(s)
 3. **Explore**: Navigate through different views to analyze your listening patterns
 
